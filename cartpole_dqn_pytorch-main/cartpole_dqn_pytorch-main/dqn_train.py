@@ -69,12 +69,22 @@ class DQN(object):
         if np.random.uniform() < EPSILON:
             # 随机值得到的数有百分之九十的可能性<0.9,所以该if成立的几率是90%
             # 90%的情况下采取actions_value高的作为最终动作
-            actions_value = self.eval_net.forward(x) #获取所有动作的Q值
-            action = torch.max(actions_value, 1)[1].data.numpy() #选择Q值最大的动作
+
+            # 向前传播，获取本次step所有动作的Q值
+            actions_value = self.eval_net.forward(x)
+            # 选择Q值最大的动作，转化为numpy
+            # torch.max（张量，维度）返回一个包含两个元素的元组，如：result=([0.7],[1])，[0]最大值，[1]该维度最大值的索引
+            action = torch.max(actions_value, 1)[1].data.numpy()
+            #如果动作是离散动作，ENV_A_SHAPE = 0 ， 返回Q最大值的动作
+            #如果动作是连续动作，ENV_A_SHAPE = 动作数组的形状  返回Q最大值的连续环境期望的动作格式（数组）
+            #连续环境是多维控制，标量只能控制一个维度，数组可以控制多个维度
             action = action[0] if ENV_A_SHAPE == 0 else action.resape(ENV_A_SHAPE)  # return the argmax index
         else:
             # 其他10%采取随机选取动作
-            action = np.random.randint(0, N_ACTIONS)  # 从动作中选一个动作
+            #此处N_ACTIONS=2，也就是随机返回0或1,0左推小车，1右推小车
+            action = np.random.randint(0, N_ACTIONS)
+            #依旧处理连续环境动作格式
+            #action是标量，需要转换为数组才能作为连续环境期望的动作格式输出
             action = action if ENV_A_SHAPE == 0 else np.array(action).reshape(ENV_A_SHAPE)
 
         # print(action)
