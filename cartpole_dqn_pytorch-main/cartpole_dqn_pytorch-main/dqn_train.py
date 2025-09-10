@@ -53,7 +53,7 @@ class DQN(object):
         self.memory = np.zeros((MEMORY_CAPACITY, N_STATES * 2 + 2))  # 初始化记忆库
         # 记忆库初始化为全0，存储两个state的数值加上一个a(action)和一个r(reward)的数值
         self.optimizer = torch.optim.Adam(self.eval_net.parameters(), lr=LR)
-        self.loss_func = nn.MSELoss()  # 优化器和损失函数
+        self.loss_func = nn.MSELoss()  # 优化器和损失函数，损失函数是均方误差
 
     # 接收环境中的观测值，并采取动作
     def choose_action(self, x):
@@ -93,36 +93,42 @@ class DQN(object):
         # 记忆库，存储之前的记忆，学习之前的记忆库里的东西
 
     def store_transition(self, s, a, r, s_):
+        #s是初始状态数组，s_是最终状态数组，利用hstack把三部分拼接起来
         transition = np.hstack((s, [a, r], s_))
         # print(transition)
         # 如果记忆库满了, 就覆盖老数据
         index = self.memory_counter % MEMORY_CAPACITY
+        #[index，：]给某一行赋值
         self.memory[index, :] = transition
         self.memory_counter += 1
         if (self.memory_counter < 2000):
             print(self.memory_counter)
 
     def learn(self):
-        # target net 参数更新,每隔TARGET_REPLACE_ITE更新一下
+        # 目标网络参数更新,每隔TARGET_REPLACE_ITE（100）更新一下
         if self.learn_step_counter % TARGET_REPLACE_ITER == 0:
+            #tarnet和eval都是net类，有torch中的api，load_state_dick是把状态字典加载，state_dict()是提取状态字典
             self.target_net.load_state_dict(self.eval_net.state_dict())
         self.learn_step_counter += 1
-        # targetnet是时不时更新一下，evalnet是每一步都更新
+        # targetNet是时不时更新一下，evalNet是每一步都更新
 
-        # 抽取记忆库中的批数据
+        # 抽取记忆库中的批数据，2000里面随机抽取32组数据，每组数据有10个参数
+        #这里的sample_index形状是（32，）
         sample_index = np.random.choice(MEMORY_CAPACITY, BATCH_SIZE)
+        #把32组数据存入b_memory32*10的张量，形状（32，10）
         b_memory = self.memory[sample_index, :]
         # 打包记忆，分开保存进b_s，b_a，b_r，b_s
-        b_s = torch.FloatTensor(b_memory[:, :N_STATES])
-        b_a = torch.LongTensor(b_memory[:, N_STATES:N_STATES + 1].astype(int))
-        b_r = torch.FloatTensor(b_memory[:, N_STATES + 1:N_STATES + 2])
-        b_s_ = torch.FloatTensor(b_memory[:, -N_STATES:])
+        b_s = torch.FloatTensor(b_memory[:, :N_STATES]) #前四列初始状态
+        b_a = torch.LongTensor(b_memory[:, N_STATES:N_STATES + 1].astype(int)) #第五列动作
+        b_r = torch.FloatTensor(b_memory[:, N_STATES + 1:N_STATES + 2]) #第六列奖励
+        b_s_ = torch.FloatTensor(b_memory[:, -N_STATES:]) #后四列最终状态
 
         # 针对做过的动作b_a, 来选 q_eval 的值, (q_eval 原本有所有动作的值)
-        q_eval = self.eval_net(b_s).gather(1, b_a)  # shape (batch, 1)
-        q_next = self.target_net(b_s_).detach()  # q_next 不进行反向传递误差, 所以 detach
+        #执行的实际是b_a,  gather(1, b_a) 沿着维度1(列方向)根据b_a的索引选择值
+        q_eval = self.eval_net(b_s).gather(1, b_a)  # shape (32, 1)是实际执行动作的Q值一阶张量
+        q_next = self.target_net(b_s_).detach()  # q_next 不进行反向传递误差, 所以 detach阻止梯度传播
         q_target = b_r + GAMMA * q_next.max(1)[0].view(BATCH_SIZE, 1)  # shape (batch, 1)
-        loss = self.loss_func(q_eval, q_target)
+        loss = self.loss_func(q_eval, q_target)#计算目标值和评估值的损失
 
         # 计算, 更新 eval net
         self.optimizer.zero_grad()
@@ -138,7 +144,7 @@ dqn = DQN()
 
 print('\nCollection experience...')
 path = "CartPole_model.pt"
-for i_episode in range(400):
+for i_episode in range(800):
     s = env.reset()  # 得到环境的反馈，现在的状态
     s = s[0]
     ep_r = 0
@@ -169,7 +175,7 @@ for i_episode in range(400):
         if (i_episode % 10 == 0) and (save_flag == False) and (dqn.memory_counter > MEMORY_CAPACITY):
             dqn.save_model(str(i_episode))
             save_flag = True
-        if done or (time > 500):
+        if done or (time > 5000):
             break
 
         s = s_  # 现在的状态赋值到下一个状态上去
