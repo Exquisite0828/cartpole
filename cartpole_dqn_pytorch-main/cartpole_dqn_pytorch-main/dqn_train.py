@@ -78,7 +78,7 @@ class DQN(object):
             #如果动作是离散动作，ENV_A_SHAPE = 0 ， 返回Q最大值的动作
             #如果动作是连续动作，ENV_A_SHAPE = 动作数组的形状  返回Q最大值的连续环境期望的动作格式（数组）
             #连续环境是多维控制，标量只能控制一个维度，数组可以控制多个维度
-            action = action[0] if ENV_A_SHAPE == 0 else action.resape(ENV_A_SHAPE)  # return the argmax index
+            action = action[0] if ENV_A_SHAPE == 0 else action.reshape(ENV_A_SHAPE)  # return the argmax index
         else:
             # 其他10%采取随机选取动作
             #此处N_ACTIONS=2，也就是随机返回0或1,0左推小车，1右推小车

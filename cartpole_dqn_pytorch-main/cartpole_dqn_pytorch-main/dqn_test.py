@@ -130,7 +130,7 @@ model.load_state_dict(torch.load(path, weights_only=True))
 model.eval()  # 设置为评估模式
 
 
-for i_episode in range(400):
+for i_episode in range(800):
     s = env.reset() #得到环境的反馈，现在的状态
     s = s[0]
     ep_r = 0
@@ -152,7 +152,7 @@ for i_episode in range(400):
         s_,r,done,info,_ = env.step(a_) #根据环境的行为，给出一个反馈
 
         
-        if done or (time > 500):
+        if done or (time > 5000):
             break
         
         s = s_ # 现在的状态赋值到下一个状态上去
